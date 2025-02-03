@@ -1,7 +1,7 @@
 # MCP with Claude Code Interpreter
 
 ## Overview
-This project provides a secure and controlled execution environment for running Python code using **Claude (Anthropic’s AI)** integrated with **Model Context Protocol (MCP)**, operating within **Daytona**. The goal is to process Python scripts in a sandboxed environment, offering isolated execution and real-time feedback.
+This project establishes a **secure, structured, and controlled execution environment** for running Python scripts by integrating **Claude (Anthropic’s AI)** with **Model Context Protocol (MCP)** and **Daytona** workspaces. It enables users to generate, execute, and validate Python code  within a **remote, sandboxed environment**, eliminating the need for manual testing on local systems. By leveraging MCP, the system ensures **safe execution, process isolation, and automated management of code interactions**, while also maintaining **state persistence** across multiple interactions. This approach significantly enhances **efficiency, security, and real-time feedback**, allowing developers to focus on high-level problem-solving without worrying about execution risks or manual intervention.
 
 ![Architecture Diagram of MCP with Daytona](docs/assets/claude-code-interpreter.png)
 
@@ -18,8 +18,8 @@ This project provides a secure and controlled execution environment for running 
 - **Real-Time Feedback**: Provides immediate results for Python scripts.
 
 ## How It Works
-1. **User submits a Python script**.
-2. **Claude AI processes the request** using **MCP** to run the code.
+1. **User prompts Claude to generate some Python code**.
+2. **Claude AI processes the request** and uses **MCP** to run the code.
 3. **Daytona securely runs the code** inside an isolated workspace.
 4. **Results are returned** to the user with structured execution details.
 
@@ -37,7 +37,7 @@ This project provides a secure and controlled execution environment for running 
 - [Node.js](https://nodejs.org) and npm package manager
 - Install [Claude App](https://claude.ai/download) if not already installed.
 
-### 1. Install **uv**:
+1. Install **uv**:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
@@ -49,18 +49,15 @@ pip install uvicorn
 
 2. Create and activate virtual environment.
 
-If a virtual environment already exists, deactivate and remove it:
-```bash
-deactivate
-rm -rf .venv
-```
-
 Create and activate the environment:
 ```bash
 uv venv
 source .venv/bin/activate     # For Linux/macOS
 ```
-On Windows: .venv\Scripts\activate
+On Windows:
+```cmd
+.venv\Scripts\activate
+```
 
 3. Install dependencies:
 ```bash
