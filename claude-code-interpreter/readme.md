@@ -7,6 +7,9 @@ This project provides a secure and controlled execution environment for running 
 
 ## Architecture Diagram
 ![Architecture Diagram of MCP with Daytona](docs/assets/mcp-code-interpreter-with-claude.png)
+- The MCP server and Claude app are running on your localhost while the Daytona workspace will run on a remote server.
+- With the help of the MCP server the user can prompt Claude to generate Python code and run it directly on the Daytona workspace, without having to test it manually on their own system.
+- The MCP will handle all request between the Daytona workspace and the Claude app, reducing manual work.
 
 ## Features
 - **Code Interpreter**: Executes Python scripts in a secure sandboxed environment.
@@ -27,7 +30,12 @@ This project provides a secure and controlled execution environment for running 
 
 ## Installation
 
-Install [Claude app](https://claude.ai/download) if not already installed.
+### Pre-requisites:
+- [git](https://git-scm.com)
+- [Daytona API key](https://daytona.work/)
+- [Python](https://www.python.org/)
+- [Node.js](https://nodejs.org) and npm package manager
+- Install [Claude App](https://claude.ai/download) if not already installed.
 
 ### 1. Install **uv**:
 ```bash
@@ -124,11 +132,3 @@ NOTE. You can get the path to `uv` by running `which uv`.
 2. Restart Claude Desktop to apply the changes.
 
 3. The Python interpreter tool will now be available for use in Claude Desktop.
-
-## Features
-
-- Executes Python code within isolated workspaces.
-- Captures stdout, stderr, and exit codes for full execution transparency.
-- Automatically cleans up workspaces after execution.
-- Secure execution environment, ensuring privacy and safety.
-- Log files for debugging and performance monitoring.
