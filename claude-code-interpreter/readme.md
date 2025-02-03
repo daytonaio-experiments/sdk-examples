@@ -59,6 +59,12 @@ On Windows: .venv\Scripts\activate
 uv add "mcp[cli]" pydantic python-dotenv daytona-sdk
 ```
 
+4. Setting up environment
+```bash
+cp .env.example .env
+```
+Set your `MCP_DAYTONA_API_KEY` and `MCP_DAYTONA_API_URL`.
+
 ## Running the Application
 
 ### Development
