@@ -27,6 +27,8 @@ This project provides a secure and controlled execution environment for running 
 
 ## Installation
 
+Install [Claude app](https://claude.ai/download) if not already installed.
+
 ### 1. Install **uv**:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
