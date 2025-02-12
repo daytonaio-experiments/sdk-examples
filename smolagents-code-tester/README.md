@@ -2,19 +2,17 @@
 
 This project utilizes **[SmolAgents](https://github.com/huggingface/smolagents)** to provide a seamless experience for commenting, running, and testing Python code. It leverages AI-powered agents to interpret the code, generate comments, automatically create tests, and run them in isolated Daytona workspace. The goal is to help users quickly understand and validate their Python code.
 
-__architecutre diagram__
-
-__working image/gif__
+![Architecutre Diagram](docs/assets/architecutre-diagram.png)
 
 ## Project Structure
 
 ```
 smolagents-code-tester
 ├── src
-│   └── main.py               # Entry point of the application
-├── .env                      # environments required to run
-├── requirements.txt           # Project dependencies
-└── README.md                  # Project documentation
+│   └── main.py                # Entry point of the application
+├── .env                       # environment variables required to run
+├── pyproject.toml             # Project dependencies
+└── readme.md                  # Project documentation
 ```
 
 ## Installation

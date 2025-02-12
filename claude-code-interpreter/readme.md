@@ -38,7 +38,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 On Windows:
 ```cmd
-pip install uvicorn
+pip install uv
 ```
 
 2. Create and activate virtual environment.
