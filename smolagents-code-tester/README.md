@@ -4,13 +4,25 @@ This project utilizes **[SmolAgents](https://github.com/huggingface/smolagents)*
 
 ![Architecutre Diagram](docs/assets/architecutre-diagram.png)
 
+## How It Works
+
+1. Host System
+    - The main python code with smolagents implementation will be executed on the host system which will scan for a sample python code inside the `/sample` folder.
+    - Smolagents will parse the code and comment, run and generate test cases for it.
+
+2. AI Model (Cloud)
+    - The specfifed AI Model will generate test cases for the given python code and save it in a new file on the Host System.
+
+3. Daytona workspace
+    - The generated test cases will be executed on the isoalted Daytona workspace which ensures no AI generated code runs on the local system which poses a security risk.
+
 ## Project Structure
 
 ```
 smolagents-code-tester
 ├── src
 │   └── main.py                # Entry point of the application
-├── .env                       # environment variables required to run
+├── .env                             # environment variables required to run
 ├── pyproject.toml             # Project dependencies
 └── readme.md                  # Project documentation
 ```
@@ -50,8 +62,19 @@ To use the application, run the main.py file:
 ```bash
 uv run src/main.py
 ```
-The application will prompt you to select the python code to test, which will then be commented on, executed, and tested.
+> The application will prompt you to select the python code to test, which will then be commented on, executed, and tested.
 
+When the execution completes 2 new files will be created:
+
+- `test_{your-file-name}.py` - Which will contain the generated test cases
+
+![Generated Tests](docs/assets/tests-generated.png)
+
+- `output_{your-file-name}.py` - Which will contain both the sample code and the generated test cases
+
+![Output Generated](docs/assets/tests-generated.png)
+
+This `output_{your-file-name}.py` is the one which will be executed on the Daytona Workspace.
 
 ## Features
 - **Code Commenting**: Automatically generates comments for Python code using SmolAgents.
