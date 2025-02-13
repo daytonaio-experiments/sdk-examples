@@ -161,11 +161,3 @@ NOTE. You can get the path to `uv` by running `which uv`.
 2. Restart Claude Desktop to apply the changes.
 
 3. The Python interpreter tool will now be available for use in Claude Desktop.
-
-## Features
-
-- Executes Python code within isolated workspaces.
-- Captures stdout, stderr, and exit codes for full execution transparency.
-- Automatically cleans up workspaces after execution.
-- Secure execution environment, ensuring privacy and safety.
-- Log files for debugging and performance monitoring.
