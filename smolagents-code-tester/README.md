@@ -46,6 +46,8 @@ uv venv
 source .venv/bin/activate       # For Linux/macOS
 ```
 
+> The test generation works better with bigger models such as `meta-llama/Llama-3.3-70B-Instruct` but it is only available with a Hugging Face Pro subscription. Change the model in the `src/main.py` file as per your needs.
+
 On Windows:
 ```bash
 .venv\Scripts\activate
@@ -72,7 +74,8 @@ When the execution completes 2 new files will be created:
 
 - `output_{your-file-name}.py` - Which will contain both the sample code and the generated test cases
 
-![Output Generated](docs/assets/tests-generated.png)
+![Output Generated](docs/assets/output-generated.png)
+![Output Generated 2](docs/assets/output-generated2.png)
 
 This `output_{your-file-name}.py` is the one which will be executed on the Daytona Workspace.
 

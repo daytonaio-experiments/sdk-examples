@@ -85,28 +85,82 @@ def cleanup_workspace(workspace):
         except Exception as e:
             logging.error(f"Failed to remove workspace: {e}", exc_info=True)
 
+def format_model_response(response: str) -> str:
+    """
+    Format the model's response to match expected pattern if it doesn't already.
+    """
+    if not re.search(r'```(?:py|python)?\n(.*?)\n```', response, re.DOTALL):
+        # If response doesn't match expected pattern, format it properly
+        cleaned = response.strip()
+        # Remove any existing code block markers that might be malformed
+        cleaned = re.sub(r'```.*?```', '', cleaned, flags=re.DOTALL)
+        # Wrap the response in proper code block
+        return f"```python\n{cleaned}\n```"
+    return response
+
 def clean_model_response(response: str) -> str:
     """Clean up the model's response by removing code block markers and other artifacts"""
-    # Remove code block markers and language identifiers
-    cleaned = re.sub(r'```(?:python|py)?\n', '', response)
-    cleaned = re.sub(r'```\s*$', '', cleaned)
-    cleaned = re.sub(r'<end_code>', '', cleaned)
+    try:
+        # First ensure response is in correct format
+        formatted_response = format_model_response(response)
 
-    # Remove any leading/trailing whitespace
-    cleaned = cleaned.strip()
+        # Extract code content from properly formatted response
+        code_match = re.search(r'```(?:py|python)?\n(.*?)\n```', formatted_response, re.DOTALL)
+        if code_match:
+            cleaned = code_match.group(1)
+        else:
+            # Fallback cleanup if regex fails
+            cleaned = response.strip()
 
-    return cleaned
+        # Remove any remaining code block markers and artifacts
+        cleaned = re.sub(r'```(?:python|py)?', '', cleaned)
+        cleaned = re.sub(r'```\s*$', '', cleaned)
+        cleaned = re.sub(r'<end_code>', '', cleaned)
+        cleaned = re.sub(r'^python\s*$', '', cleaned, flags=re.MULTILINE)  # Remove standalone 'python'
+
+        # Ensure proper line endings
+        cleaned = cleaned.replace('\r\n', '\n')
+
+        # Remove empty lines at start and end
+        cleaned = cleaned.strip()
+
+        return cleaned
+    except Exception as e:
+        logging.error(f"Error cleaning model response: {e}")
+        return response
 
 def write_test_file(test_file_path: Path, response: str) -> None:
     """Write the cleaned test code to file"""
-    cleaned_response = clean_model_response(response)
+    try:
+        cleaned_response = clean_model_response(response)
 
-    # Add imports if not present
-    if 'import unittest' not in cleaned_response:
-        cleaned_response = 'import unittest\n\n' + cleaned_response
+        if not cleaned_response:
+            raise ValueError("Empty response after cleaning")
 
-    with open(test_file_path, 'w') as test_file:
-        test_file.write(cleaned_response)
+        # Add required imports
+        final_code = []
+        if 'import unittest' not in cleaned_response:
+            final_code.append('import unittest\n')
+
+        final_code.append(cleaned_response)
+
+        # Join all parts with proper spacing
+        complete_code = '\n'.join(final_code)
+
+        # Validate the final code
+        try:
+            ast.parse(complete_code)
+        except SyntaxError as e:
+            logging.error(f"Invalid Python code generated: {e}")
+            # Try to save anyway but with a warning
+            logging.warning("Saving code despite syntax errors")
+
+        with open(test_file_path, 'w', encoding='utf-8') as test_file:
+            test_file.write(complete_code)
+
+    except Exception as e:
+        logging.error(f"Failed to write test file: {e}")
+        raise
 
 def main():
     try:
@@ -154,13 +208,13 @@ Generate unittest test cases for the following Python code:
 {code_content}
 
 Ensure:
-- Do NOT execute or run any test cases, just generate the code.
+- Do NOT execute or run any test cases, only generate the test cases.
 - Do not use any other dependencies than unittest.
 - Each test verifies expected outputs.
 - Edge cases are covered.
 - The test cases are properly structured using unittest.
 - Along with the test cases make sure there is print statements that says which tests failed.
-- Only give the python code, nothing else. Never use codeblock or any indication of code end (<end_code>).
+- Only give the python test cases, nothing else. Never use codeblock or any indication of code end (<end_code>).
 - Make sure that the output is clearly readable and well formatted.
 """
 
@@ -176,9 +230,13 @@ Ensure:
                 spinner_thread.join()
 
                 test_file_path = selected_file.parent.parent / f"test_{selected_file.stem}.py"
-                write_test_file(test_file_path, response)
-
-                print(f"✅ Test cases generated and saved to {test_file_path}")
+                try:
+                    write_test_file(test_file_path, response)
+                    print(f"✅ Test cases generated and saved to {test_file_path}")
+                except ValueError as ve:
+                    print(f"❌ Error generating valid test code: {ve}")
+                except Exception as e:
+                    print(f"❌ Error writing test file: {e}")
 
             except KeyboardInterrupt:
                 show_spinner.done = True
@@ -211,14 +269,32 @@ Ensure:
             """
             # Use regular expression to remove standalone 'py' (not part of other words)
             return re.sub(r'(?<!test)\bpy\b(?!test)', '', code)
-            return re.sub(r'\bpy\b', '', code)
+            #return re.sub(r'\bpy\b', '', code)
+
+        def has_duplicate_code(original_code: str, test_code: str) -> bool:
+            """
+            Check if the test code contains a duplicate of the original code implementation.
+            """
+            def extract_class_content(code: str, class_name: str) -> str:
+                """Extract class definition and methods for comparison"""
+                pattern = rf"class\s+{class_name}\b[^:]*:.*?(?=\n\S|$)"
+                match = re.search(pattern, code, re.DOTALL)
+                return match.group(0) if match else ""
+
+            # Find all class names in original code
+            class_names = re.findall(r'class\s+(\w+)', original_code)
+
+            for class_name in class_names:
+                original_class = extract_class_content(original_code, class_name)
+                if original_class and class_name in test_code:
+                    # If we find the same class name, check if it's a test class
+                    if not f"Test{class_name}" in test_code:
+                        return True
+            return False
 
         def merge_python_files(selected_file, test_file_path, output_file_path):
             """
-            Merges the content of two Python files: selected_file and test_file_path
-            into a third file output_file_path. Skips any invalid Python code.
-            The content of selected_file comes first, followed by the content of test_file_path.
-            Removes the word 'py' if it appears as standalone in the test file content before writing to the output.
+            Merges the content of two Python files, avoiding duplicate code.
             """
             try:
                 # Read the content of the selected file
@@ -229,36 +305,38 @@ Ensure:
                 with open(test_file_path, "r") as file2:
                     test_file_content = file2.read()
 
-                # Remove backticks from the test file content
-                test_file_content = test_file_content.replace('`', '')
+                # Check for duplicate code
+                if has_duplicate_code(selected_file_content, test_file_content):
+                    print("\n⚠️ Duplicate implementation detected in test file.")
+                    print("➡️ Only saving the test file...")
 
-                # Remove standalone occurrences of 'py' from the test file content
-                test_file_content = remove_standalone_py(test_file_content)
+                    # Extract only the test class and its dependencies
+                    cleaned_test_content = test_file_content.replace(selected_file_content, '')
 
-                # Validate the Python code content from both files
-                valid_selected_content = selected_file_content if is_valid_python_code(selected_file_content) else ""
-                valid_test_content = test_file_content if is_valid_python_code(test_file_content) else ""
-
-                # Check if the test file contains '.py' and skip its content if found
-                if '.py' not in valid_test_content:
                     with open(output_file_path, "w") as output_file:
-                        # Write the valid content of the selected file
-                        if valid_selected_content:
-                            output_file.write(f'# Content of {selected_file.name}:\n\n')  # Optional header
-                            output_file.write(valid_selected_content)
+                        # Write original implementation first
+                        output_file.write(f'# Original implementation from {selected_file.name}\n')
+                        output_file.write(selected_file_content)
+                        output_file.write('\n\n# Test cases\n')
+                        output_file.write(cleaned_test_content)
 
-                        # Write the valid content of the test file
-                        if valid_test_content:
-                            output_file.write(f"\n\n# Content of {test_file_path.name}:\n\n")  # Optional header
-                            output_file.write(valid_test_content)
-
-                    print(f"✅ Files merged successfully and saved to {output_file_path}")
+                    print(f"✅ Combined file saved to {output_file_path}")
                 else:
-                    print("❌ .py detected in the test file content. Skipping test file content.")
-            except Exception as e:
-                print(f"❌ Error during file merge: {e}")
+                    # No duplicates found, proceed with regular merge
+                    if is_valid_python_code(test_file_content):
+                        with open(output_file_path, "w") as output_file:
+                            output_file.write(selected_file_content)
+                            output_file.write('\n\n')
+                            output_file.write(test_file_content)
 
-        output_file_path = selected_file.parent.parent / f"ouput_{selected_file.stem}.py"
+                        print(f"✅ Files merged successfully and saved to {output_file_path}")
+                    else:
+                        print("❌ Invalid Python code found in test file. Skipping merge.")
+
+            except Exception as e:
+                print(f"❌ Error during file merge: {e}")
+
+        output_file_path = selected_file.parent.parent / f"output_{selected_file.stem}.py"
         merge_python_files(selected_file, test_file_path, output_file_path)
 
 
@@ -270,25 +348,78 @@ Ensure:
             target=config.target  # Using the value from the Config class
         )
 
+        def format_test_results(execution_response):
+            """Format the test execution results for better readability"""
+            if execution_response.exit_code == 0:
+                # Split the result string into lines
+                lines = execution_response.result.split('\n')
+
+                # Format the output
+                formatted_output = "\n🧪 Test Execution Results:\n"
+                formatted_output += "═" * 50 + "\n"
+
+                # Process each line
+                for line in lines:
+                    if "..." in line:  # This is a test result line
+                        test_name = line.split(' ')[0]
+                        result = "✅ PASSED" if "ok" in line else "❌ FAILED"
+                        formatted_output += f"{test_name:<40} {result}\n"
+
+                # Add summary
+                summary_line = next((line for line in lines if "Ran" in line), "")
+                time_taken = summary_line.split("in")[1].strip() if summary_line else "unknown time"
+
+                formatted_output += "═" * 50 + "\n"
+                formatted_output += f"Total Time: {time_taken}\n"
+                formatted_output += f"Final Result: {'✅ All tests passed!' if 'OK' in execution_response.result else '❌ Some tests failed!'}\n"
+
+                return formatted_output
+            else:
+                return f"\n❌ Test execution failed with exit code: {execution_response.exit_code}"
+
         try:
-            # Create workspace
+            print("\n🚀 Setting up Daytona workspace...")
+            print("═" * 50)
+
+            # Create workspace with progress indicator
+            print("⏳ Creating workspace...")
             workspace = daytona_client.create(workspace_params)
+            print(f"✅ Workspace created successfully (ID: {workspace.id})")
 
-            # Read the generated test file content
+            print("\n📝 Preparing test environment...")
+            print("═" * 50)
+
+            # Read and validate test code
+            print("⏳ Loading test file...")
             with open(output_file_path, 'r') as output_file:
-                outupt_code = output_file.read()
+                output_code = output_file.read()
+            print("✅ Test file loaded successfully")
 
-            # Execute the test code in Daytona
-            execution_response = workspace.process.code_run(outupt_code)
+            # Execute test code with progress messaging
+            print("\n🧪 Executing tests in Daytona workspace...")
+            print("═" * 50)
+            print("⏳ Running test suite...")
 
-            print(f"\nTest Execution Result: {execution_response}")
+            execution_response = workspace.process.code_run(output_code)
+
+            # Format and display results with clear separation
+            print("\n📊 Test Results")
+            print("═" * 50)
+            formatted_results = format_test_results(execution_response)
+            print(formatted_results)
 
         except Exception as e:
-            print(f"❌ Error during test execution: {str(e)}")
+            print("\n❌ Error during test execution:")
+            print("═" * 50)
+            print(f"Error details: {str(e)}")
         finally:
-            # Cleanup workspace
+            # Cleanup workspace with status message
             if 'workspace' in locals():
+                print("\n🧹 Cleaning up resources...")
+                print("═" * 50)
+                print("⏳ Removing Daytona workspace...")
                 cleanup_workspace(workspace)
+                print("✅ Cleanup completed")
 
     except KeyboardInterrupt:
         print("\n\n⚠️ Process cancelled by user.")
