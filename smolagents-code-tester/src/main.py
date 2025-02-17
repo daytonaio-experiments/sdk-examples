@@ -182,7 +182,7 @@ def main():
 
         selected_file = select_file(python_files)
 
-        model = HfApiModel(model_id="Qwen/Qwen2.5-Coder-32B-Instruct", token=hf_token)   # Change model here
+        model = HfApiModel(model_id="meta-llama/Llama-3.3-70B-Instruct", token=hf_token)   # Change model here
         agent = CodeAgent(tools=[], model=model, additional_authorized_imports=["unittest"])
 
         print(f"\nAnalyzing {selected_file.name}...")
@@ -389,18 +389,37 @@ Ensure:
             print("\n📝 Preparing test environment...")
             print("═" * 50)
 
-            # Read and validate test code
-            print("⏳ Loading test file...")
-            with open(output_file_path, 'r') as output_file:
-                output_code = output_file.read()
-            print("✅ Test file loaded successfully")
+            # Read test files
+            print("⏳ Loading test files...")
+            selected_file_content = ""
+            test_file_content = ""
+
+            with open(selected_file, 'r') as src_file:
+                selected_file_content = src_file.read()
+            with open(output_file_path, 'r') as test_file:
+                test_file_content = test_file.read()
+            print("✅ Files loaded successfully")
+
+            # Send files to Daytona workspace
+            print("⏳ Sending files to workspace...")
+
+            # Send source file
+            source_path = f"/workspace/{selected_file.name}"
+            workspace.process.write_file(source_path, selected_file_content)
+
+            # Send test file
+            test_path = f"/workspace/test_{selected_file.stem}.py"
+            workspace.process.write_file(test_path, test_file_content)
+
+            print("✅ Files transferred to workspace")
 
             # Execute test code with progress messaging
             print("\n🧪 Executing tests in Daytona workspace...")
             print("═" * 50)
             print("⏳ Running test suite...")
 
-            execution_response = workspace.process.code_run(output_code)
+            # Execute the test file specifically
+            execution_response = workspace.process.code_run(f"python {test_path}")
 
             # Format and display results with clear separation
             print("\n📊 Test Results")
