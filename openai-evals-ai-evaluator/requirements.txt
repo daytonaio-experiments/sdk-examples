@@ -1,0 +1,4 @@
+openai>=1.63.2
+python-dotenv>=1.0.1
+pytest>=8.3.4
+daytona-sdk
