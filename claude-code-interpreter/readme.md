@@ -9,14 +9,17 @@ This project provides a secure and controlled execution environment for running 
 
 
 ## Architecture Diagram
+
 ![Architecture Diagram of MCP with Daytona](docs/assets/mcp-code-interpreter-with-claude.png)
 
 ## Technology Stack
+
 - **Claude AI**: Language model for interpreting and executing code.
 - **Model Context Protocol (MCP)**: Manages memory, tools, and structured reasoning during execution.
 - **Daytona SDK**: Provides a secure environment for code execution.
 
 ## Features
+
 - **Code Interpreter**: Executes Python scripts in a secure sandboxed environment.
 - **Process Isolation**: Ensures each execution is isolated, preventing unauthorized access.
 - **State Persistence**: Maintains state across multiple interactions for consistent results.
@@ -48,11 +51,13 @@ This flow ensures seamless execution, where the host system, Claude app, and Day
 Install [Claude app](https://claude.ai/download) if not already installed.
 
 ### 1. Install **uv**:
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 On Windows:
+
 ```cmd
 pip install uv
 ```
@@ -60,27 +65,33 @@ pip install uv
 2. Create and activate virtual environment.
 
 If a virtual environment already exists, deactivate and remove it:
+
 ```bash
 deactivate
 rm -rf .venv
 ```
 
 Create and activate the environment:
+
 ```bash
 uv venv
 source .venv/bin/activate     # For Linux/macOS
 ```
+
 On Windows: .venv\Scripts\activate
 
 3. Install dependencies:
+
 ```bash
 uv add "mcp[cli]" pydantic python-dotenv daytona-sdk
 ```
 
 4. Setting up environment
+
 ```bash
 cp .env.example .env
 ```
+
 Set your `MCP_DAYTONA_API_KEY` and `MCP_DAYTONA_API_URL`.
 
 ## Running the Application
@@ -88,11 +99,13 @@ Set your `MCP_DAYTONA_API_KEY` and `MCP_DAYTONA_API_URL`.
 ### Development
 
 Run the server directly:
+
 ```bash
 uv run src/daytona_mcp_interpreter/server.py
 ```
 
 Alternatively, use the MCP Inspector for easier debugging:
+
 ```bash
 npx @modelcontextprotocol/inspector \
   uv \
@@ -102,7 +115,8 @@ npx @modelcontextprotocol/inspector \
 ```
 
 Tail log:
-```
+
+```bash
 tail -f /tmp/daytona-interpreter.log
 ```
 
@@ -110,7 +124,10 @@ tail -f /tmp/daytona-interpreter.log
 
 1. Configure the Claude Desktop config file:
 
+Make sure to edit the path as per your environment.
+
 On MacOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
 ```json
 {
     "mcpServers": {
@@ -144,6 +161,7 @@ NOTE. You can get the path to `uv` by running `which uv`.
 3. The Python interpreter tool will now be available for use in Claude Desktop.
 
 ## Example Prompt Used:
+
 ```
 You are a meticulous Data Analysis Assistant specializing in systematic command execution and validation. Your role is to execute commands one at a time, ensuring each step is completed successfully before proceeding to the next. You must:
 
@@ -176,4 +194,5 @@ Report any warnings or errors in detail
 
 Now, please analyse: https://www.timestored.com/data/sample/iris.csv
 ```
+
 This prompt ensures that a meticulous Data Analysis Assistant executes each step of a task in a controlled, isolated Daytona environment, providing clear feedback and handling errors gracefully, while performing data operations and analysis with built-in Python tools.
