@@ -67,7 +67,7 @@ class Config:
         if not self.api_key:
             raise ValueError("DAYTONA_API_KEY is required")
 
-        self.server_url = os.getenv('DAYTONA_SERVER_URL', 'https://daytona.work/api')
+        self.server_url = os.getenv('DAYTONA_SERVER_URL', 'https://app.daytona.io/api')
         self.target = os.getenv('DAYTONA_TARGET', 'us')
         self.timeout = float(os.getenv('DAYTONA_TIMEOUT', '180.0'))
 
