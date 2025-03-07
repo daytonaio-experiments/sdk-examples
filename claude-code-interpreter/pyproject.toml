@@ -5,11 +5,11 @@ description = "A Python code interpretation with claude running in Daytona Works
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    "mcp[cli]>=1.3.0",
     "pydantic>=2.10.2",
     "python-dotenv>=1.0.1",
     "httpx>=0.24.0",
-    "daytona-sdk>=0.6.0",
+    "daytona-sdk>=0.9.1",
     "api-client>=1.3.1",
 ]
 

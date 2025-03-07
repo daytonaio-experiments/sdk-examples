@@ -66,8 +66,8 @@ class Config:
             logging.getLogger("daytona-interpreter").info("MCP_DAYTONA_API_KEY loaded successfully.")
 
         # Optional configuration with defaults
-        self.server_url = os.getenv('MCP_DAYTONA_SERVER_URL', 'https://daytona.work/api')  # Renamed
-        self.target = os.getenv('MCP_DAYTONA_TARGET', 'local')
+        self.server_url = os.getenv('MCP_DAYTONA_SERVER_URL', 'https://app.daytona.io/api')  # Renamed
+        self.target = os.getenv('MCP_DAYTONA_TARGET', 'us')
         self.timeout = float(os.getenv('MCP_DAYTONA_TIMEOUT', '180.0'))
         self.verify_ssl = os.getenv('MCP_VERIFY_SSL', 'false').lower() == 'true'
 

@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.12"
 
 [[package]]
@@ -89,19 +90,35 @@ wheels = [
 ]
 
 [[package]]
-name = "daytona-sdk"
-version = "0.6.0"
+name = "daytona-api-client"
+version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/ef/1e7c90aeb7e91e4759af7c58000c8c70c589883374f1a7cf12b60d679da1/daytona_api_client-0.14.0.tar.gz", hash = "sha256:c82d7dccd6c307124da35c4e6ebf6870ae7b904b06646aa60ecf61387fce237a", size = 64494 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/57/0b590e7de504f46ca7f5bdab7423e45bb8ec4edf914e769185d5830bd2de/daytona_api_client-0.14.0-py3-none-any.whl", hash = "sha256:33113c61377d602c3e2e0a04b29b159707baf28cf50883b9c382d58a3e493538", size = 127101 },
+]
+
+[[package]]
+name = "daytona-sdk"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "daytona-api-client" },
     { name = "environs" },
     { name = "marshmallow" },
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/ec/b3c22d3a9103337eea10d2920df290b2030ff2756977c873001105502d5d/daytona_sdk-0.6.0.tar.gz", hash = "sha256:11979050c35f7d79410b963774eea0bedee647f8b08e92021d654d2c4785d0cf", size = 72441 }
+sdist = { url = "https://files.pythonhosted.org/packages/75/dd/38fd8395d67030b00a0fead700fd0a1f02a372f28107bd8566fd69069046/daytona_sdk-0.9.1.tar.gz", hash = "sha256:1e2f219f55130fc72d2f14a57d008b8d3e236d45294e0ca51e249106be5ca5de", size = 15908 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/73/286b2a67639d2b8e1ab952ad9f443a142e1d5cee96a807acd5d662bb6654/daytona_sdk-0.6.0-py3-none-any.whl", hash = "sha256:e6fca8dc01508b0bf4cca6c62cb8f7581d7af49571bd4526e8a246302b98b1bd", size = 176871 },
+    { url = "https://files.pythonhosted.org/packages/16/19/03d1803d086f04f020ee8b594699fd908fb7a82c18e149b4239c8f1651cd/daytona_sdk-0.9.1-py3-none-any.whl", hash = "sha256:cce6c90cd3d578747b3c388e24c811cb0b21ad125d34b32836c50059a577a12a", size = 17348 },
 ]
 
 [[package]]
@@ -312,23 +329,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979 },
-]
-
-[[package]]
-name = "new-smolagents"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "daytona-sdk" },
-    { name = "python-dotenv" },
-    { name = "smolagents" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "daytona-sdk", specifier = "==0.6.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "smolagents", specifier = ">=1.8.0" },
 ]
 
 [[package]]
@@ -639,6 +639,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4b/ff/90a96ab1724f013306470e75e579c5ef336a2a17629957bcd7e8d3ad49f3/smolagents-1.8.0.tar.gz", hash = "sha256:fe23452f4785771bf52a6c080f70c3b2dbf8a6c0505e74b696d43635ac754ad0", size = 113925 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2b/1e/553dd078cb396d373210ef01170295ee7f6696dce98222f33a6c3178a671/smolagents-1.8.0-py3-none-any.whl", hash = "sha256:e786c457167f6bf3c8e49ff24c0b943ef3beb4e4b8176a099e21a02bb67529d4", size = 94768 },
+]
+
+[[package]]
+name = "smolagents-code-tester"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "daytona-sdk" },
+    { name = "python-dotenv" },
+    { name = "smolagents" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "daytona-sdk", specifier = "==0.9.1" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "smolagents", specifier = ">=1.8.0" },
 ]
 
 [[package]]
