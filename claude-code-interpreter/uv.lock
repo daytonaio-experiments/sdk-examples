@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.10"
 
 [[package]]
@@ -127,21 +128,6 @@ wheels = [
 ]
 
 [[package]]
-name = "daytona-api-client"
-version = "0.12.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "python-dateutil" },
-    { name = "typing-extensions" },
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/5f/b59dfaa9deba88fbdad6456eb68373c2d0a788d0a54894ec1401a185cbe3/daytona_api_client-0.12.2.tar.gz", hash = "sha256:989042aeaba42423be72ea163458520b09f70613ab188c4b04c1c7529e0d1ca4", size = 60584 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/1a/129b638160c12a2582002985140bda0ee3d5983d8140dad876d3339ff24b/daytona_api_client-0.12.2-py3-none-any.whl", hash = "sha256:6ce26ef736618518b8643db6dff1dda82451d25963e4fff6b5b424348fc9793c", size = 120175 },
-]
-
-[[package]]
 name = "daytona-mcp-interpreter"
 version = "0.1.0"
 source = { editable = "." }
@@ -157,7 +143,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "api-client", specifier = ">=1.3.1" },
-    { name = "daytona-sdk", specifier = ">=0.9.0" },
+    { name = "daytona-sdk", specifier = "==0.6.0" },
     { name = "httpx", specifier = ">=0.24.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.0.0" },
     { name = "pydantic", specifier = ">=2.10.2" },
@@ -166,19 +152,18 @@ requires-dist = [
 
 [[package]]
 name = "daytona-sdk"
-version = "0.9.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "daytona-api-client" },
     { name = "environs" },
     { name = "marshmallow" },
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/45/0c/ba30c55546f390eaf83c050e992a277702bc6f8af68cb204b0f29bc9f654/daytona_sdk-0.9.0.tar.gz", hash = "sha256:a7d1b9f882be1c1a98b0c3a7c50f46c3651bda235c45cb8cad9ddaa6cacbf9a2", size = 15411 }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/ec/b3c22d3a9103337eea10d2920df290b2030ff2756977c873001105502d5d/daytona_sdk-0.6.0.tar.gz", hash = "sha256:11979050c35f7d79410b963774eea0bedee647f8b08e92021d654d2c4785d0cf", size = 72441 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/6b/818c598d43766705093aaf7b638e268bcb4184c99c08fa7dc8ab5ec322c7/daytona_sdk-0.9.0-py3-none-any.whl", hash = "sha256:9d1fe377b944e7306064a271f7d931bfae5337590b31063e1aac82264fa098f3", size = 16843 },
+    { url = "https://files.pythonhosted.org/packages/63/73/286b2a67639d2b8e1ab952ad9f443a142e1d5cee96a807acd5d662bb6654/daytona_sdk-0.6.0-py3-none-any.whl", hash = "sha256:e6fca8dc01508b0bf4cca6c62cb8f7581d7af49571bd4526e8a246302b98b1bd", size = 176871 },
 ]
 
 [[package]]
