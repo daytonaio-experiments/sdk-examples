@@ -5,7 +5,7 @@ description = "An AI evaluator that takes a sample function from the user, gener
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "daytona-sdk>=0.9.1",
+    "daytona-sdk==0.10.2",
     "python-dotenv>=1.0.1",
     "openai>=1.63.2",
     "asyncio",
