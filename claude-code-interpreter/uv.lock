@@ -128,6 +128,21 @@ wheels = [
 ]
 
 [[package]]
+name = "daytona-api-client"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/ef/1e7c90aeb7e91e4759af7c58000c8c70c589883374f1a7cf12b60d679da1/daytona_api_client-0.14.0.tar.gz", hash = "sha256:c82d7dccd6c307124da35c4e6ebf6870ae7b904b06646aa60ecf61387fce237a", size = 64494 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/57/0b590e7de504f46ca7f5bdab7423e45bb8ec4edf914e769185d5830bd2de/daytona_api_client-0.14.0-py3-none-any.whl", hash = "sha256:33113c61377d602c3e2e0a04b29b159707baf28cf50883b9c382d58a3e493538", size = 127101 },
+]
+
+[[package]]
 name = "daytona-mcp-interpreter"
 version = "0.1.0"
 source = { editable = "." }
@@ -143,27 +158,28 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "api-client", specifier = ">=1.3.1" },
-    { name = "daytona-sdk", specifier = "==0.6.0" },
+    { name = "daytona-sdk", specifier = "==0.10.2" },
     { name = "httpx", specifier = ">=0.24.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.0.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.3.0" },
     { name = "pydantic", specifier = ">=2.10.2" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
 
 [[package]]
 name = "daytona-sdk"
-version = "0.6.0"
+version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "daytona-api-client" },
     { name = "environs" },
     { name = "marshmallow" },
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/ec/b3c22d3a9103337eea10d2920df290b2030ff2756977c873001105502d5d/daytona_sdk-0.6.0.tar.gz", hash = "sha256:11979050c35f7d79410b963774eea0bedee647f8b08e92021d654d2c4785d0cf", size = 72441 }
+sdist = { url = "https://files.pythonhosted.org/packages/c4/f3/0855399ab5968c53b92bec5bb8c2cdca86aca7580fa4e19ee4832f00ae8c/daytona_sdk-0.10.2.tar.gz", hash = "sha256:f792b31f177f4494433a4506020c5e282c85a1a045287d219f6ec79ecd4ddfa9", size = 28055 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/73/286b2a67639d2b8e1ab952ad9f443a142e1d5cee96a807acd5d662bb6654/daytona_sdk-0.6.0-py3-none-any.whl", hash = "sha256:e6fca8dc01508b0bf4cca6c62cb8f7581d7af49571bd4526e8a246302b98b1bd", size = 176871 },
+    { url = "https://files.pythonhosted.org/packages/bf/c3/4881c9c9ada986ef5a7b220a65f123fa9b0d01594e75a3753b707a299437/daytona_sdk-0.10.2-py3-none-any.whl", hash = "sha256:d2dcd314b452273977bd13e3df1656ae9948d32b54412fbacde91eb61a8b1565", size = 33023 },
 ]
 
 [[package]]
@@ -269,7 +285,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.2.1"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -281,9 +297,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/30/51e4555826126e3954fa2ab1e934bf74163c5fe05e98f38ca4d0f8abbf63/mcp-1.2.1.tar.gz", hash = "sha256:c9d43dbfe943aa1530e2be8f54b73af3ebfb071243827b4483d421684806cb45", size = 103968 }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/b6/81e5f2490290351fc97bf46c24ff935128cb7d34d68e3987b522f26f7ada/mcp-1.3.0.tar.gz", hash = "sha256:f409ae4482ce9d53e7ac03f3f7808bcab735bdfc0fba937453782efb43882d45", size = 150235 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/0d/6770742a84c8aa1d36c0d628896a380584c5759612e66af7446af07d8775/mcp-1.2.1-py3-none-any.whl", hash = "sha256:579bf9c9157850ebb1344f3ca6f7a3021b0123c44c9f089ef577a7062522f0fd", size = 66453 },
+    { url = "https://files.pythonhosted.org/packages/d0/d2/a9e87b506b2094f5aa9becc1af5178842701b27217fa43877353da2577e3/mcp-1.3.0-py3-none-any.whl", hash = "sha256:2829d67ce339a249f803f22eba5e90385eafcac45c94b00cab6cef7e8f217211", size = 70672 },
 ]
 
 [package.optional-dependencies]

@@ -66,8 +66,8 @@ class Config:
             logging.getLogger("daytona-interpreter").info("MCP_DAYTONA_API_KEY loaded successfully.")
 
         # Optional configuration with defaults
-        self.server_url = os.getenv('MCP_DAYTONA_SERVER_URL', 'https://daytona.work/api')  # Renamed
-        self.target = os.getenv('MCP_DAYTONA_TARGET', 'local')
+        self.server_url = os.getenv('MCP_DAYTONA_SERVER_URL', 'https://app.daytona.io/api')  # Renamed
+        self.target = os.getenv('MCP_DAYTONA_TARGET', 'us')
         self.timeout = float(os.getenv('MCP_DAYTONA_TIMEOUT', '180.0'))
         self.verify_ssl = os.getenv('MCP_VERIFY_SSL', 'false').lower() == 'true'
 
@@ -147,7 +147,8 @@ class DaytonaInterpreter:
             "notifications/progress": handle_progress,
             "notifications/initialized": handle_initialized,
             "notifications/roots/list_changed": handle_roots_list_changed,
-            "cancelled": handle_cancelled  # Added handler for 'cancelled' method
+            "cancelled": handle_cancelled,  # Added handler for 'cancelled' method
+            "unknown": handle_unknown_notification
         })
 
     def setup_handlers(self):
@@ -232,14 +233,16 @@ class DaytonaInterpreter:
         """
         if not self.workspace:
             self.logger.info("Creating a new Daytona workspace")
-            params = CreateWorkspaceParams(
-                language="python"
-                # image="jupyter/datascience-notebook"
-                # Additional parameters can be defined here
-            )
+            
+            workspace_params = CreateWorkspaceParams(
+            language="python",
+            target=self.config.target,
+            timeout=self.config.timeout,
+        )
             try:
-                self.workspace = self.daytona.create(params)
-                self.logger.info(f"Created Workspace ID: {self.workspace.id}")
+                self.workspace = self.daytona.create(workspace_params)
+                self.logger.info(f"Created Workspace ID: {self.workspace.id}")                
+                # Create workspace with progress indicator
             except Exception as e:
                 self.logger.error(f"Failed to create workspace: {e}", exc_info=True)
                 raise
@@ -264,11 +267,15 @@ class DaytonaInterpreter:
             result = str(response.result).strip() if response.result else ""
             self.logger.info(f"Execution Output:\n{result}")
 
+            # Determine the exit code safely:
+            exit_code = getattr(response, 'code', None)
+            if exit_code is None:
+             exit_code = getattr(response, 'exit_code', 0)
             # Return the execution output as JSON
             return json.dumps({
                 "stdout": result,
                 "stderr": "",
-                "exit_code": response.code
+                "exit_code": response.exit_code
             }, indent=2)
         except Exception as e:
             self.logger.error(f"Error executing Python code: {e}", exc_info=True)
@@ -306,11 +313,16 @@ class DaytonaInterpreter:
             result = str(response.result).strip() if response.result else ""
             self.logger.info(f"Command Output:\n{result}")
 
+            # Determine the exit code safely:
+            exit_code = getattr(response, 'code', None)
+            if exit_code is None:
+             exit_code = getattr(response, 'exit_code', 0)
+
             # Return the execution output as JSON
             return json.dumps({
                 "stdout": result,
                 "stderr": "",
-                "exit_code": 0 if response.code is None else response.code
+                "exit_code": exit_code
             }, indent=2)
         except Exception as e:
             self.logger.error(f"Error executing command: {e}", exc_info=True)

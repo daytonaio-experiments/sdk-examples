@@ -40,7 +40,7 @@ class Config:
         else:
             logging.getLogger("daytona-setup").info("DAYTONA_API_KEY loaded successfully.")
 
-        self.server_url = os.getenv('DAYTONA_SERVER_URL', 'https://daytona.work/api')
+        self.server_url = os.getenv('DAYTONA_SERVER_URL', 'https://app.daytona.io/api')
         self.target = os.getenv('DAYTONA_TARGET', 'us')  # Ensure it's one of ['eu', 'us', 'asia']
         self.timeout = float(os.getenv('DAYTONA_TIMEOUT', '180.0'))
         self.verify_ssl = os.getenv('VERIFY_SSL', 'false').lower() == 'true'
