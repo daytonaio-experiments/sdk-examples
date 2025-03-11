@@ -758,6 +758,9 @@ async def validate_functions(original_function: str, variations: List[str]) -> L
     # Clean up validation workspace
     try:
         cleanup_workspace(original_workspace)
+        # Remove from active_workspaces to prevent double cleanup attempts
+        if original_workspace in active_workspaces:
+            active_workspaces.remove(original_workspace)
         print("✅ Validator workspace cleaned up")
     except Exception as e:
         print(f"⚠️ Could not clean up validator workspace: {e}")
@@ -940,8 +943,19 @@ async def main():
         cleanup = input("\nClean up workspaces? (y/n): ").lower() == 'y'
         if cleanup:
             print("\n🧹 Cleaning up resources...")
-            for workspace in active_workspaces:
-                cleanup_workspace(workspace)
+
+            # Create a copy of the list to iterate safely while removing items
+            workspaces_to_cleanup = active_workspaces.copy()
+
+            for workspace in workspaces_to_cleanup:
+                try:
+                    cleanup_workspace(workspace)
+                    # Remove from active_workspaces to avoid reporting it later
+                    if workspace in active_workspaces:
+                        active_workspaces.remove(workspace)
+                except Exception as e:
+                    print(f"⚠️ Error cleaning up workspace {workspace.id}: {e}")
+
             print("✅ Cleanup completed")
         else:
             print("\n⚠️ Workspaces left running. Remember to clean them up manually later.")
