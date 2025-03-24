@@ -1,4 +1,6 @@
 import asyncio
+# Add detailed logging
+import logging
 import os
 import signal
 import sys
@@ -11,6 +13,13 @@ from daytona_sdk import CreateWorkspaceParams, Daytona, DaytonaConfig
 from daytona_sdk.workspace import Workspace
 from dotenv import load_dotenv
 from pydantic import BaseModel
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("repo-summarizer")
 
 
 def setup_environment() -> Dict[str, str]:
@@ -108,71 +117,130 @@ async def clone_repository(workspace: Workspace, repo_url: str) -> bool:
 async def get_repo_changes(workspace: Workspace) -> Dict[str, Any]:
     """Get repository changes and statistics using Git API."""
     results = {}
-    workspace_path = "/workspace"
+    # Update the workspace path to the correct location
+    repo_dir = "/home/daytona"
 
     try:
-        # Get branch information using Git API
-        print("Fetching branch information...")
-        branches_response = workspace.git.branches(workspace_path)
-        branches_list = [branch.name for branch in branches_response.branches]
-        results['branches'] = ", ".join(branches_list)
+        # First verify if the repo exists and has files
+        logger.info(f"Verifying repository at {repo_dir}")
+        verify_cmd = workspace.process.exec(f"ls -la {repo_dir}")
+        logger.info(f"Directory contents: {verify_cmd.result if verify_cmd.result else 'Empty'}")
 
-        # Get current status
-        print("Fetching repository status...")
-        status = workspace.git.status(workspace_path)
-        results['current_branch'] = status.current_branch
-        results['ahead_commits'] = status.ahead
-        results['behind_commits'] = status.behind
+        # Find the actual repo directory (might be in a subdirectory)
+        find_git_cmd = workspace.process.exec(f"find {repo_dir} -type d -name .git")
+        if find_git_cmd.result:
+            git_dirs = find_git_cmd.result.strip().split('\n')
+            if git_dirs:
+                # Use the first .git directory found
+                repo_dir = os.path.dirname(git_dirs[0])
+                logger.info(f"Found git repository at: {repo_dir}")
 
-        # For commit history and diffs, we still need to use exec as Git API doesn't have these methods
-        print("Fetching recent commits...")
-        commit_response = workspace.process.exec("git -C /workspace log -5 --pretty=format:'%h - %an, %ar : %s'")
-        results['recent_commits'] = commit_response.result.strip() if commit_response.result else ""
+        # FIXED: Use shell echo to check current directory
+        logger.info("Getting current working directory...")
+        pwd_cmd = workspace.process.exec(f"cd {repo_dir} && pwd")
+        if pwd_cmd.result:
+            logger.info(f"Current directory: {pwd_cmd.result.strip()}")
+
+        # Get branch information using Git command directly (more reliable than API)
+        logger.info(f"Fetching branch information from {repo_dir}...")
+        try:
+            # FIXED: Use explicit --git-dir to ensure correct repo access
+            branches_cmd = workspace.process.exec(f"git --git-dir={repo_dir}/.git branch -a")
+            if branches_cmd.result:
+                # Extract branch names from command output
+                branch_lines = branches_cmd.result.strip().split('\n')
+                branches_list = []
+                current_branch = ""
+
+                for line in branch_lines:
+                    line = line.strip()
+                    if line.startswith('*'):
+                        # Current branch has an asterisk
+                        branch_name = line[1:].strip()
+                        branches_list.append(branch_name)
+                        current_branch = branch_name
+                    elif 'remotes/origin/' in line:
+                        # Skip remote branches
+                        continue
+                    else:
+                        branches_list.append(line)
+
+                results['branches'] = ", ".join(branches_list)
+                results['current_branch'] = current_branch
+                logger.info(f"Found branches: {results['branches']}")
+            else:
+                logger.warning("No branch information returned")
+                results['branches'] = "main (assumed)"
+                results['current_branch'] = "main"
+        except Exception as e:
+            logger.error(f"Error getting branch information: {e}")
+            results['branches'] = "main (assumed)"
+            results['current_branch'] = "main"
+
+        # For commit history
+        logger.info("Fetching recent commits...")
+        try:
+            # FIXED: Use git --git-dir explicitly
+            commit_response = workspace.process.exec(f"git --git-dir={repo_dir}/.git log -5 --pretty=format:'%h - %an, %ar : %s'")
+            results['recent_commits'] = commit_response.result.strip() if commit_response.result else "No commit history available"
+            logger.info(f"Found {len(results['recent_commits'].split('\\n'))} commits")
+        except Exception as e:
+            logger.error(f"Error getting commit history: {e}")
+            results['recent_commits'] = "No commit history available"
 
         # Try to get diff stats between commits
         try:
-            diff_response = workspace.process.exec("git -C /workspace diff HEAD~1 HEAD --stat 2>/dev/null || echo 'No previous commit to compare'")
+            diff_response = workspace.process.exec(f"git --git-dir={repo_dir}/.git diff HEAD~1 HEAD --stat 2>/dev/null || echo 'No previous commit to compare'")
             results['diff_stats'] = diff_response.result.strip() if diff_response.result else ""
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error getting diff stats: {e}")
             results['diff_stats'] = "Could not fetch diff statistics"
 
-        # Get file status from Git API
-        if status.file_status:
-            file_changes = []
-            for file_status in status.file_status:
-                file_changes.append(f"{file_status.path} ({file_status.status})")
-            results['changed_files'] = "\n".join(file_changes)
-
-        # Get repository language statistics
-        print("Analyzing repository language composition...")
+        # List all files directly - FIXED: Use more reliable command without complex pipes
+        logger.info(f"Listing all files in {repo_dir}...")
         try:
-            # Use cloc (Count Lines of Code) if available
-            cloc_response = workspace.process.exec("which cloc >/dev/null && cloc --quiet --json /workspace || echo '{}'")
-            if cloc_response.result and cloc_response.result.strip() != '{}':
-                import json
-                try:
-                    cloc_data = json.loads(cloc_response.result)
-                    if isinstance(cloc_data, dict):
-                        # Remove header data
-                        if 'header' in cloc_data:
-                            del cloc_data['header']
-                        if 'SUM' in cloc_data:
-                            del cloc_data['SUM']
-                        results['language_stats'] = cloc_data
-                except json.JSONDecodeError:
-                    pass
-
-            # Fallback to file extension counting
-            if 'language_stats' not in results:
-                extension_response = workspace.process.exec("find /workspace -type f -name '*.*' | grep -v 'node_modules\\|venv\\|.git' | rev | cut -d. -f1 | rev | sort | uniq -c | sort -nr")
-                if extension_response.result:
-                    results['file_extensions'] = extension_response.result.strip()
+            # FIXED: Simplified command that doesn't use complex pipes or escaping
+            files_cmd = workspace.process.exec(f"find {repo_dir} -type f -not -path '*/.git/*' -not -path '*/.daytona/*'")
+            if files_cmd.result:
+                files = files_cmd.result.strip().split('\n')
+                results['all_files'] = files
+                logger.info(f"Found {len(files)} files")
+                if len(files) > 0:
+                    logger.info(f"Sample files: {', '.join(files[:5])}")
+            else:
+                logger.warning("No files found in repository")
+                results['all_files'] = []
         except Exception as e:
-            print(f"Warning: Failed to analyze language composition: {e}")
+            logger.error(f"Error listing files: {e}")
+            results['all_files'] = []
+
+        # Get repository language statistics using file extensions
+        logger.info("Analyzing repository language composition...")
+        try:
+            if 'all_files' in results and results['all_files']:
+                # Count file extensions
+                extensions = {}
+                for file_path in results['all_files']:
+                    _, ext = os.path.splitext(file_path)
+                    if ext:
+                        ext = ext.lower()[1:]  # Remove the dot and convert to lowercase
+                        extensions[ext] = extensions.get(ext, 0) + 1
+
+                if extensions:
+                    # Sort by count (descending)
+                    sorted_extensions = sorted(extensions.items(), key=lambda x: x[1], reverse=True)
+                    results['file_extensions'] = "\n".join([f"{count} {ext}" for ext, count in sorted_extensions])
+                    logger.info(f"Language statistics: {sorted_extensions[:5]}")
+                else:
+                    logger.warning("No file extensions found")
+            else:
+                logger.warning("Cannot analyze language composition without file list")
+        except Exception as e:
+            logger.error(f"Error analyzing language composition: {e}")
 
         return results
     except Exception as e:
-        print(f"Error getting repository changes: {e}")
+        logger.error(f"Error getting repository changes: {e}")
         return {"error": str(e)}
 
 
@@ -217,36 +285,61 @@ class RepositorySummary(BaseModel):
 async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str, Any]) -> Optional[RepositorySummary]:
     """Generate a summary of the repository using OpenAI API directly."""
     try:
-        print("\nGenerating repository summary with OpenAI API...")
+        logger.info("\nGenerating repository summary with OpenAI API...")
 
         # Try to import OpenAI
         try:
             import openai
             from openai import OpenAI
         except ImportError:
-            print("Error: openai package is not installed or not properly installed.")
+            logger.error("Error: openai package is not installed or not properly installed.")
             return None
 
-        # Get file listing from workspace with a broader range of file types
-        print("Scanning repository structure...")
-        file_list_response = workspace.process.exec(
-            "find /workspace -type f -not -path '*/\.*' -not -path '*/node_modules/*' -not -path '*/venv/*' | sort"
-        )
-        file_list = file_list_response.result.strip().split('\n') if file_list_response.result else []
+        # Get all files from repo_info if available
+        file_list = repo_info.get('all_files', [])
+        if not file_list:
+            # If file list not in repo_info, try to get it directly
+            logger.info("File list not in repo_info, scanning repository structure...")
+            repo_dir = "/home/daytona"
 
-        # Get directory structure for a high-level overview
-        dir_structure_response = workspace.process.exec(
-            "find /workspace -type d -not -path '*/\.*' -not -path '*/node_modules/*' -not -path '*/venv/*' | sort"
-        )
-        dir_structure = dir_structure_response.result.strip().split('\n') if dir_structure_response.result else []
+            # Find the actual git repository
+            find_git_cmd = workspace.process.exec(f"find {repo_dir} -type d -name .git")
+            if find_git_cmd.result:
+                git_dirs = find_git_cmd.result.strip().split('\n')
+                if git_dirs:
+                    repo_dir = os.path.dirname(git_dirs[0])
+                    logger.info(f"Found git repository at: {repo_dir}")
+
+            # FIXED: Use simplified command
+            file_cmd = workspace.process.exec(f"find {repo_dir} -type f -not -path '*/.git/*' -not -path '*/.daytona/*'")
+            file_list = file_cmd.result.strip().split('\n') if file_cmd.result else []
+
+        logger.info(f"Found {len(file_list)} files")
+        if len(file_list) > 0:
+            sample = ", ".join(file_list[:5])
+            logger.info(f"Sample files: {sample}")
+
+        # Get directory structure
+        repo_dir = "/home/daytona"
+        # FIXED: Use simplified command
+        dir_cmd = workspace.process.exec(f"find {repo_dir} -type d -not -path '*/.git/*' -not -path '*/.daytona/*'")
+        dir_structure = dir_cmd.result.strip().split('\n') if dir_cmd.result else []
+        logger.info(f"Found {len(dir_structure)} directories")
 
         # Determine important files to analyze
-        print("Identifying key files for analysis...")
+        logger.info("Identifying key files for analysis...")
+
+        # FIXED: Check for README explicitly
+        readme_files = []
+        for f in file_list:
+            if "readme" in f.lower() or "README" in f:
+                readme_files.append(f)
+                logger.info(f"Found README: {f}")
 
         # Common important file patterns for various repository types
         important_patterns = [
             # Documentation
-            r'readme\.md$', r'contributing\.md$', r'docs/',
+            r'contributing\.md$', r'docs/',
             # Configuration
             r'package\.json$', r'setup\.py$', r'requirements\.txt$', r'gemfile$', r'\.csproj$',
             r'pom\.xml$', r'build\.gradle$', r'go\.mod$', r'cargo\.toml$', r'makefile$', r'dockerfile$',
@@ -260,46 +353,49 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
         import re
         important_files = []
 
-        # First check for readme and similar docs
-        docs = [f for f in file_list if re.search(r'readme\.md$|readme\.txt$', f.lower())]
-        important_files.extend(docs)
+        # Add README files
+        important_files.extend(readme_files)
 
         # If no README, try to find other key files
-        if not docs:
-            print("No README found. Looking for other significant files...")
+        if not readme_files:
+            logger.info("No README found. Looking for other significant files...")
             for pattern in important_patterns:
-                matches = [f for f in file_list if re.search(pattern, f.lower())]
+                matches = []
+                for f in file_list:
+                    if re.search(pattern, f.lower()):
+                        matches.append(f)
+                if matches:
+                    logger.info(f"Found {len(matches)} matches for pattern {pattern}")
                 important_files.extend(matches[:3])  # Limit to 3 files per pattern
 
         # Ensure we don't have too many files (limit to 15 for token consideration)
         important_files = list(set(important_files))[:15]
+        logger.info(f"Selected {len(important_files)} important files for analysis")
 
-        # Get content of key files
+        # Get content of key files - FIXED: Better error handling
         file_contents = {}
         for file_path in important_files:
             try:
-                cat_response = workspace.process.exec(f"cat '{file_path}'")
-                if cat_response.result:
-                    file_contents[file_path] = cat_response.result
-            except Exception:
+                size_cmd = workspace.process.exec(f"wc -c '{file_path}' || echo '0'")
+                size = 0
+                try:
+                    size = int(size_cmd.result.strip().split()[0])
+                except (ValueError, IndexError):
+                    pass
+
+                if size > 0 and size < 10000:  # 10KB limit
+                    cat_response = workspace.process.exec(f"cat '{file_path}'")
+                    if cat_response.result:
+                        file_contents[file_path] = cat_response.result
+                        logger.info(f"Successfully read {len(cat_response.result)} bytes from {file_path}")
+                    else:
+                        logger.warning(f"No content returned from {file_path}")
+            except Exception as e:
+                logger.error(f"Error reading {file_path}: {e}")
                 continue
 
-        # If we couldn't get content from important files, sample some files
-        if not file_contents and file_list:
-            print("No key file contents found. Sampling random files...")
-            # Take a sample of up to 10 files
-            import random
-            sample_files = random.sample(file_list, min(10, len(file_list)))
-            for file_path in sample_files:
-                try:
-                    # Check file size first to avoid large binary files
-                    size_check = workspace.process.exec(f"stat -c%s '{file_path}'")
-                    if size_check.result and int(size_check.result.strip()) < 10000:  # 10KB limit
-                        cat_response = workspace.process.exec(f"cat '{file_path}'")
-                        if cat_response.result:
-                            file_contents[file_path] = cat_response.result
-                except Exception:
-                    continue
+        # Log summary of file contents
+        logger.info(f"Successfully read content from {len(file_contents)} files")
 
         # Prepare context for the AI prompt
         repo_name = repo_info.get("repo_name", "")
@@ -309,17 +405,18 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
 
         # Add language statistics if available
         language_info = ""
-        if 'language_stats' in repo_info:
-            language_info = "Language statistics:\n" + str(repo_info['language_stats'])
-        elif 'file_extensions' in repo_info:
+        if 'file_extensions' in repo_info:
             language_info = "File extensions count:\n" + repo_info['file_extensions']
+            logger.info(f"Including language statistics in prompt")
 
         # Create a compact directory structure representation
         dir_tree = "\n".join(dir_structure[:30])  # Limit to 30 directories
 
         # Combine information for the prompt
         prompt = f"""
-        Analyze this GitHub repository and provide a comprehensive summary:
+        You are tasked with analyzing a GitHub repository containing code. This is a software development repository that requires a technical assessment.
+
+        Analyze this GitHub repository and provide a comprehensive software engineering focused summary:
 
         Repository Name: {repo_name}
         Branches: {branches}
@@ -345,15 +442,14 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
             prompt += f"\n--- {file_path} ---\n{truncated_content}\n"
 
         prompt += """
-        Based on this information, please provide:
-        1. An overview of the repository's purpose and main functionality
-        2. Description of the main components and their interactions
-        3. Technologies and frameworks used in the repository
-        4. High-level architecture of the codebase
-        5. Suggestions for potential improvements or issues that could be addressed
+        Based on this information, please provide a software engineering focused assessment:
+        1. An overview of the repository's purpose and main functionality from a technical perspective
+        2. Description of the main components and their interactions within the software architecture
+        3. Technologies and frameworks used in the repository, being specific about programming languages, libraries, and tools
+        4. High-level architecture of the codebase, discussing patterns, organization, and technical design
+        5. Technical suggestions for potential improvements or issues that could be addressed from an engineering standpoint
 
-        Even if there's limited information or no README, please make educated inferences about the repository's purpose and structure based on file names, directory structure, and any available code snippets.
-
+        Remember this is source code for a software project - focus on technical details and avoid vague generalizations.
         Format your response as JSON with the following structure:
         {
             "overview": "...",
@@ -368,25 +464,52 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
         client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
 
         # Make the API call
-        print("Generating analysis with AI model...")
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo-16k",  # Using a model with larger context window
-            messages=[
-                {"role": "system", "content": "You are a code analysis assistant that provides repository summaries in a structured JSON format. You're skilled at inferring repository purpose even with limited information."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=2000,
-            response_format={"type": "json_object"}
-        )
+        logger.info("Generating analysis with AI model...")
 
-        # Extract the content from the response
-        content = response.choices[0].message.content.strip()
+        # First try with gpt-3.5-turbo which is more reliable
+        try:
+            logger.info("Using gpt-3.5-turbo model")
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a code analysis assistant that provides repository summaries. You focus on technical analysis of source code, identifying patterns, technologies, and potential improvements."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=2000
+            )
+            content = response.choices[0].message.content.strip()
+            logger.info(f"Received response of length {len(content)}")
+        except Exception as e:
+            logger.error(f"Error with OpenAI API: {e}")
+            # Create a basic fallback summary
+            return RepositorySummary(
+                overview="Error generating overview with AI.",
+                main_components="Error analyzing components.",
+                tech_stack="Error identifying tech stack.",
+                architecture="Error analyzing architecture.",
+                potential_improvements="Error generating improvement suggestions."
+            )
 
         # Parse the JSON response
         import json
         try:
-            summary_data = json.loads(content)
+            # Try to extract JSON from the response - it may be surrounded by markdown code blocks
+            logger.info("Attempting to parse response as JSON")
+            if "```json" in content:
+                # Extract JSON from markdown code block
+                json_content = content.split("```json")[1].split("```")[0].strip()
+                logger.info("Found JSON content in markdown code block")
+                summary_data = json.loads(json_content)
+            elif "```" in content:
+                # Try any code block
+                json_content = content.split("```")[1].split("```")[0].strip()
+                logger.info("Found JSON content in code block")
+                summary_data = json.loads(json_content)
+            else:
+                # Try to parse the entire content
+                logger.info("Attempting to parse entire content as JSON")
+                summary_data = json.loads(content)
 
             # Create a RepositorySummary object with the data
             summary = RepositorySummary(
@@ -396,17 +519,59 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
                 architecture=summary_data.get("architecture", "No architecture information available"),
                 potential_improvements=summary_data.get("potential_improvements", "No improvement suggestions available")
             )
-
+            logger.info("Successfully created summary from JSON response")
             return summary
         except json.JSONDecodeError:
-            print("Error: Failed to parse JSON response from OpenAI")
-            print("Response content:", content)
-            return None
+            logger.error("Failed to parse JSON response from OpenAI")
+            logger.debug(f"Response content: {content}")
+
+            # Make one more attempt by extracting structured information
+            try:
+                logger.info("Attempting to extract structured information from text")
+                # Create a fallback summary by parsing the response as text
+                overview = "No overview could be extracted from the response."
+                main_components = "No component information could be extracted."
+                tech_stack = "No tech stack information could be extracted."
+                architecture = "No architecture information could be extracted."
+                potential_improvements = "No improvement suggestions could be extracted."
+
+                # Extract sections from the text
+                sections = content.split("\n\n")
+                for section in sections:
+                    if "overview" in section.lower() or "purpose" in section.lower():
+                        overview = section
+                    elif "component" in section.lower():
+                        main_components = section
+                    elif "tech" in section.lower() or "technolog" in section.lower() or "stack" in section.lower():
+                        tech_stack = section
+                    elif "architect" in section.lower() or "structure" in section.lower():
+                        architecture = section
+                    elif "improv" in section.lower() or "recommend" in section.lower() or "suggestion" in section.lower():
+                        potential_improvements = section
+
+                logger.info("Created summary by parsing text sections")
+                return RepositorySummary(
+                    overview=overview,
+                    main_components=main_components,
+                    tech_stack=tech_stack,
+                    architecture=architecture,
+                    potential_improvements=potential_improvements
+                )
+            except Exception as e:
+                logger.error(f"Error extracting structured information: {e}")
+                # Return basic fallback summary
+                return RepositorySummary(
+                    overview="Error generating overview with AI.",
+                    main_components="Error analyzing components.",
+                    tech_stack="Error identifying tech stack.",
+                    architecture="Error analyzing architecture.",
+                    potential_improvements="Error generating improvement suggestions."
+                )
 
     except Exception as e:
-        print(f"Error generating repository summary: {e}")
+        logger.error(f"Error generating repository summary: {e}")
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
         return None
 
 
