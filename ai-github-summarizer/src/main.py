@@ -1,18 +1,18 @@
 import asyncio
-# Add detailed logging
 import logging
 import os
 import signal
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from urllib.parse import urlparse
 
-# Fix PyDantic AI import
 import pydantic_ai
 from daytona_sdk import CreateWorkspaceParams, Daytona, DaytonaConfig
 from daytona_sdk.workspace import Workspace
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from pydantic_ai import Agent
+from pydantic_ai.models import KnownModelName
 
 # Set up logging
 logging.basicConfig(
@@ -135,7 +135,7 @@ async def get_repo_changes(workspace: Workspace) -> Dict[str, Any]:
                 repo_dir = os.path.dirname(git_dirs[0])
                 logger.info(f"Found git repository at: {repo_dir}")
 
-        # FIXED: Use shell echo to check current directory
+        # Use shell echo to check current directory
         logger.info("Getting current working directory...")
         pwd_cmd = workspace.process.exec(f"cd {repo_dir} && pwd")
         if pwd_cmd.result:
@@ -144,7 +144,7 @@ async def get_repo_changes(workspace: Workspace) -> Dict[str, Any]:
         # Get branch information using Git command directly (more reliable than API)
         logger.info(f"Fetching branch information from {repo_dir}...")
         try:
-            # FIXED: Use explicit --git-dir to ensure correct repo access
+            # Use explicit --git-dir to ensure correct repo access
             branches_cmd = workspace.process.exec(f"git --git-dir={repo_dir}/.git branch -a")
             if branches_cmd.result:
                 # Extract branch names from command output
@@ -180,7 +180,7 @@ async def get_repo_changes(workspace: Workspace) -> Dict[str, Any]:
         # For commit history
         logger.info("Fetching recent commits...")
         try:
-            # FIXED: Use git --git-dir explicitly
+            # Use git --git-dir explicitly
             commit_response = workspace.process.exec(f"git --git-dir={repo_dir}/.git log -5 --pretty=format:'%h - %an, %ar : %s'")
             results['recent_commits'] = commit_response.result.strip() if commit_response.result else "No commit history available"
             logger.info(f"Found {len(results['recent_commits'].split('\\n'))} commits")
@@ -188,18 +188,27 @@ async def get_repo_changes(workspace: Workspace) -> Dict[str, Any]:
             logger.error(f"Error getting commit history: {e}")
             results['recent_commits'] = "No commit history available"
 
-        # Try to get diff stats between commits
+        # Try to get diff stats between commits - FIXED to handle repos with only one commit
         try:
-            diff_response = workspace.process.exec(f"git --git-dir={repo_dir}/.git diff HEAD~1 HEAD --stat 2>/dev/null || echo 'No previous commit to compare'")
-            results['diff_stats'] = diff_response.result.strip() if diff_response.result else ""
+            # First check if we have more than one commit
+            commit_count_cmd = workspace.process.exec(f"git --git-dir={repo_dir}/.git rev-list --count HEAD")
+            commit_count = int(commit_count_cmd.result.strip()) if commit_count_cmd.result else 0
+
+            if commit_count > 1:
+                # We have multiple commits, can get diff between last two
+                diff_response = workspace.process.exec(f"git --git-dir={repo_dir}/.git diff HEAD~1 HEAD --stat")
+                results['diff_stats'] = diff_response.result.strip() if diff_response.result else ""
+            else:
+                # Repository has only one commit
+                results['diff_stats'] = "No previous commits to compare with."
         except Exception as e:
             logger.error(f"Error getting diff stats: {e}")
             results['diff_stats'] = "Could not fetch diff statistics"
 
-        # List all files directly - FIXED: Use more reliable command without complex pipes
+        # List all files directly - Use more reliable command without complex pipes
         logger.info(f"Listing all files in {repo_dir}...")
         try:
-            # FIXED: Simplified command that doesn't use complex pipes or escaping
+            # Simplified command that doesn't use complex pipes or escaping
             files_cmd = workspace.process.exec(f"find {repo_dir} -type f -not -path '*/.git/*' -not -path '*/.daytona/*'")
             if files_cmd.result:
                 files = files_cmd.result.strip().split('\n')
@@ -283,16 +292,13 @@ class RepositorySummary(BaseModel):
     potential_improvements: str
 
 async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str, Any]) -> Optional[RepositorySummary]:
-    """Generate a summary of the repository using OpenAI API directly."""
+    """Generate a summary of the repository using PydanticAI."""
     try:
-        logger.info("\nGenerating repository summary with OpenAI API...")
+        logger.info("\nGenerating repository summary with PydanticAI...")
 
-        # Try to import OpenAI
-        try:
-            import openai
-            from openai import OpenAI
-        except ImportError:
-            logger.error("Error: openai package is not installed or not properly installed.")
+        # Check if OPENAI_API_KEY is available
+        if not os.getenv('OPENAI_API_KEY'):
+            logger.error("Error: OPENAI_API_KEY environment variable is not set.")
             return None
 
         # Get all files from repo_info if available
@@ -310,7 +316,7 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
                     repo_dir = os.path.dirname(git_dirs[0])
                     logger.info(f"Found git repository at: {repo_dir}")
 
-            # FIXED: Use simplified command
+            # Use simplified command
             file_cmd = workspace.process.exec(f"find {repo_dir} -type f -not -path '*/.git/*' -not -path '*/.daytona/*'")
             file_list = file_cmd.result.strip().split('\n') if file_cmd.result else []
 
@@ -321,7 +327,7 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
 
         # Get directory structure
         repo_dir = "/home/daytona"
-        # FIXED: Use simplified command
+        # Use simplified command
         dir_cmd = workspace.process.exec(f"find {repo_dir} -type d -not -path '*/.git/*' -not -path '*/.daytona/*'")
         dir_structure = dir_cmd.result.strip().split('\n') if dir_cmd.result else []
         logger.info(f"Found {len(dir_structure)} directories")
@@ -329,7 +335,7 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
         # Determine important files to analyze
         logger.info("Identifying key files for analysis...")
 
-        # FIXED: Check for README explicitly
+        # Check for README explicitly
         readme_files = []
         for f in file_list:
             if "readme" in f.lower() or "README" in f:
@@ -372,7 +378,7 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
         important_files = list(set(important_files))[:15]
         logger.info(f"Selected {len(important_files)} important files for analysis")
 
-        # Get content of key files - FIXED: Better error handling
+        # Get content of key files - Better error handling
         file_contents = {}
         for file_path in important_files:
             try:
@@ -442,7 +448,7 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
             prompt += f"\n--- {file_path} ---\n{truncated_content}\n"
 
         prompt += """
-        Based on this information, please provide a software engineering focused assessment:
+        Based on this information, please provide a software engineering focused assessment with:
         1. An overview of the repository's purpose and main functionality from a technical perspective
         2. Description of the main components and their interactions within the software architecture
         3. Technologies and frameworks used in the repository, being specific about programming languages, libraries, and tools
@@ -450,123 +456,28 @@ async def generate_repository_summary(workspace: Workspace, repo_info: Dict[str,
         5. Technical suggestions for potential improvements or issues that could be addressed from an engineering standpoint
 
         Remember this is source code for a software project - focus on technical details and avoid vague generalizations.
-        Format your response as JSON with the following structure:
-        {
-            "overview": "...",
-            "main_components": "...",
-            "tech_stack": "...",
-            "architecture": "...",
-            "potential_improvements": "..."
-        }
         """
 
-        # Initialize OpenAI client with API key
-        client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+        # Get model name from environment or use default
+        model_name = cast(KnownModelName, os.getenv('PYDANTIC_AI_MODEL', 'openai:gpt-4'))
+        logger.info(f"Using PydanticAI with model: {model_name}")
 
-        # Make the API call
-        logger.info("Generating analysis with AI model...")
+        # Initialize PydanticAI agent
+        agent = Agent(model_name, result_type=RepositorySummary, instrument=True)
 
-        # First try with gpt-3.5-turbo which is more reliable
-        try:
-            logger.info("Using gpt-3.5-turbo model")
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a code analysis assistant that provides repository summaries. You focus on technical analysis of source code, identifying patterns, technologies, and potential improvements."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.5,
-                max_tokens=2000
-            )
-            content = response.choices[0].message.content.strip()
-            logger.info(f"Received response of length {len(content)}")
-        except Exception as e:
-            logger.error(f"Error with OpenAI API: {e}")
-            # Create a basic fallback summary
-            return RepositorySummary(
-                overview="Error generating overview with AI.",
-                main_components="Error analyzing components.",
-                tech_stack="Error identifying tech stack.",
-                architecture="Error analyzing architecture.",
-                potential_improvements="Error generating improvement suggestions."
-            )
+        # Run the agent with our prompt
+        logger.info("Generating analysis with PydanticAI...")
 
-        # Parse the JSON response
-        import json
-        try:
-            # Try to extract JSON from the response - it may be surrounded by markdown code blocks
-            logger.info("Attempting to parse response as JSON")
-            if "```json" in content:
-                # Extract JSON from markdown code block
-                json_content = content.split("```json")[1].split("```")[0].strip()
-                logger.info("Found JSON content in markdown code block")
-                summary_data = json.loads(json_content)
-            elif "```" in content:
-                # Try any code block
-                json_content = content.split("```")[1].split("```")[0].strip()
-                logger.info("Found JSON content in code block")
-                summary_data = json.loads(json_content)
-            else:
-                # Try to parse the entire content
-                logger.info("Attempting to parse entire content as JSON")
-                summary_data = json.loads(content)
+        # We need to handle this synchronously since pydantic_ai's Agent doesn't have async support
+        # Get the current event loop
+        loop = asyncio.get_event_loop()
 
-            # Create a RepositorySummary object with the data
-            summary = RepositorySummary(
-                overview=summary_data.get("overview", "No overview available"),
-                main_components=summary_data.get("main_components", "No component information available"),
-                tech_stack=summary_data.get("tech_stack", "No tech stack information available"),
-                architecture=summary_data.get("architecture", "No architecture information available"),
-                potential_improvements=summary_data.get("potential_improvements", "No improvement suggestions available")
-            )
-            logger.info("Successfully created summary from JSON response")
-            return summary
-        except json.JSONDecodeError:
-            logger.error("Failed to parse JSON response from OpenAI")
-            logger.debug(f"Response content: {content}")
+        # Run the agent in a thread pool executor
+        result = await loop.run_in_executor(None, lambda: agent.run_sync(prompt))
+        logger.info(f"Successfully received result from PydanticAI")
 
-            # Make one more attempt by extracting structured information
-            try:
-                logger.info("Attempting to extract structured information from text")
-                # Create a fallback summary by parsing the response as text
-                overview = "No overview could be extracted from the response."
-                main_components = "No component information could be extracted."
-                tech_stack = "No tech stack information could be extracted."
-                architecture = "No architecture information could be extracted."
-                potential_improvements = "No improvement suggestions could be extracted."
-
-                # Extract sections from the text
-                sections = content.split("\n\n")
-                for section in sections:
-                    if "overview" in section.lower() or "purpose" in section.lower():
-                        overview = section
-                    elif "component" in section.lower():
-                        main_components = section
-                    elif "tech" in section.lower() or "technolog" in section.lower() or "stack" in section.lower():
-                        tech_stack = section
-                    elif "architect" in section.lower() or "structure" in section.lower():
-                        architecture = section
-                    elif "improv" in section.lower() or "recommend" in section.lower() or "suggestion" in section.lower():
-                        potential_improvements = section
-
-                logger.info("Created summary by parsing text sections")
-                return RepositorySummary(
-                    overview=overview,
-                    main_components=main_components,
-                    tech_stack=tech_stack,
-                    architecture=architecture,
-                    potential_improvements=potential_improvements
-                )
-            except Exception as e:
-                logger.error(f"Error extracting structured information: {e}")
-                # Return basic fallback summary
-                return RepositorySummary(
-                    overview="Error generating overview with AI.",
-                    main_components="Error analyzing components.",
-                    tech_stack="Error identifying tech stack.",
-                    architecture="Error analyzing architecture.",
-                    potential_improvements="Error generating improvement suggestions."
-                )
+        # Return the data from the result
+        return result.data
 
     except Exception as e:
         logger.error(f"Error generating repository summary: {e}")
@@ -624,10 +535,10 @@ async def main():
         # Add repository name to the changes dictionary
         changes['repo_name'] = normalized_url.split('/')[-1].replace('.git', '')
 
-        # Generate repository summary with PyDantic AI if OpenAI API key is available
+        # Generate repository summary with PydanticAI if OpenAI API key is available
         summary = None
         if 'openai_api_key' in config:
-            # Set the OpenAI API key for PyDantic AI
+            # Set the OpenAI API key for PydanticAI
             os.environ['OPENAI_API_KEY'] = config['openai_api_key']
             summary = await generate_repository_summary(workspace, changes)
 

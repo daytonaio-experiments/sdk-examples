@@ -1,7 +1,8 @@
 # GitHub Repository Summarizer
 
 ## Overview
-This tool provides AI-powered analysis and summarization of GitHub repositories. It leverages Daytona workspaces for secure repository cloning and OpenAI's language models to generate comprehensive summaries of any repository's purpose, structure, and technical details.
+
+This tool provides AI-powered analysis and summarization of GitHub repositories. It leverages [Daytona](https://www.daytona.io/) workspaces for secure repository cloning and [PydanticAI](https://ai.pydantic.dev/) framework to connect AI models to generate comprehensive summaries of any repository's purpose, structure, and technical details.
 
 ## Features
 
@@ -18,6 +19,8 @@ This tool provides AI-powered analysis and summarization of GitHub repositories.
 
 ## Architecture
 
+![Output Terminal](docs/assets/arch-diag.png)
+
 The application uses a serverless architecture that:
 
 1. Creates an isolated Daytona workspace in the cloud
@@ -31,7 +34,7 @@ The application uses a serverless architecture that:
 - **Daytona SDK**: For secure cloud workspace management
 - **OpenAI API**: For AI-powered code analysis and summary generation
 - **Python**: Core application language
-- **Pydantic**: For data validation and settings management
+- **PydanticAI**: To connect with different AI Models and generate summary
 - **Asyncio**: For efficient asynchronous operations
 
 ## Requirements
@@ -51,10 +54,6 @@ cp .env.example .env
 ```
 
 3. Edit `.env` to add your API keys:
-
-```shell
-
-```
 
 4. Create and activate a Python virtual environment:
 
@@ -82,3 +81,9 @@ uv run src/main.py
 ```
 
 The application will prompt you to enter a GitHub repo, which will then be cloned, parsed and summary generated.
+
+![Output Terminal](docs/assets/output.png)
+
+## Contributing
+
+Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
